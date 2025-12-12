@@ -22,6 +22,9 @@ pub enum EvaluationError {
     WrongArity(String, usize, usize),
     NotANumber,
     Uncomparable,
+    NotAQuote,
+    NullApplication,
+    NotAnApplication,
 }
 
 impl Display for EvaluationError {
@@ -36,6 +39,9 @@ impl Display for EvaluationError {
             }
             EvaluationError::NotANumber => write!(f, "Not a number"),
             EvaluationError::Uncomparable => write!(f, "Uncomparable"),
+            EvaluationError::NotAQuote => write!(f, "Not a quote"),
+            EvaluationError::NullApplication => write!(f, "Null quote"),
+            EvaluationError::NotAnApplication => write!(f, "Not an application"),
         }
     }
 }
@@ -125,11 +131,14 @@ impl Lisp {
             "def" => self.def(args),
             "unquote" => self.unquote(args, scope),
             "if" => self.iff(args, scope),
+            "cons" => Lisp::cons(args),
+            "head" => Lisp::head(args),
+            "tail" => Lisp::tail(args),
             ":" => Ok(args[args.len() - 1].clone()),
-            "+" => self.add(args),
-            "-" => self.sub(args),
-            "*" => self.mul(args),
-            "=" => self.eq(args),
+            "+" => Lisp::add(args),
+            "-" => Lisp::sub(args),
+            "*" => Lisp::mul(args),
+            "=" => Lisp::eq(args),
             _ => self.run_function(name, args),
         }
     }
@@ -341,7 +350,61 @@ impl Lisp {
         }
     }
 
-    fn add(self: &mut Self, args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
+    fn cons(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
+        Lisp::ensure_arity("cons", 2, args)?;
+
+        match &*args[1] {
+            Expression::Quote(q) => {
+                if let Expression::Application(v) = &**q {
+                    let mut new = v.clone();
+                    new.insert(0, args[0].clone());
+                    Ok(Rc::new(Expression::Quote(Rc::new(
+                        Expression::Application(new),
+                    ))))
+                } else {
+                    Err(EvaluationError::NotAnApplication)
+                }
+            }
+            Expression::Nil => Ok(Rc::new(Expression::Quote(Rc::new(
+                Expression::Application(Vec::from(&args[0..1])),
+            )))),
+            _ => Err(EvaluationError::NotAQuote),
+        }
+    }
+
+    fn head(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
+        Lisp::ensure_arity("head", 1, args)?;
+
+        if let Expression::Quote(q) = &*args[0] {
+            match &**q {
+                Expression::Application(v) if v.len() > 0 => Ok(v[0].clone()),
+                Expression::Application(_) => Err(EvaluationError::NullApplication),
+                _ => Err(EvaluationError::NotAnApplication),
+            }
+        } else {
+            Err(EvaluationError::NotAQuote)
+        }
+    }
+
+    fn tail(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
+        Lisp::ensure_arity("tail", 1, args)?;
+
+        if let Expression::Quote(q) = &*args[0] {
+            if let Expression::Application(v) = &**q {
+                Ok(Rc::new(if v.len() == 0 {
+                    Expression::Nil
+                } else {
+                    Expression::Quote(Rc::new(Expression::Application(Vec::from(&args[1..]))))
+                }))
+            } else {
+                Err(EvaluationError::NotAnApplication)
+            }
+        } else {
+            Err(EvaluationError::NotAQuote)
+        }
+    }
+
+    fn add(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
         Lisp::ensure_arity("+", 2, args)?;
 
         match (&*args[0], &*args[1]) {
@@ -351,7 +414,7 @@ impl Lisp {
         }
     }
 
-    fn sub(self: &mut Self, args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
+    fn sub(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
         Lisp::ensure_arity("-", 2, args)?;
 
         match (&*args[0], &*args[1]) {
@@ -361,7 +424,7 @@ impl Lisp {
         }
     }
 
-    fn mul(self: &mut Self, args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
+    fn mul(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
         Lisp::ensure_arity("*", 2, args)?;
 
         match (&*args[0], &*args[1]) {
@@ -371,7 +434,7 @@ impl Lisp {
         }
     }
 
-    fn eq(self: &mut Self, args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
+    fn eq(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
         Lisp::ensure_arity("=", 2, args)?;
 
         match (&*args[0], &*args[1]) {
