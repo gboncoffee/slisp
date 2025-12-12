@@ -443,7 +443,7 @@ impl Lisp {
                 Ok(Rc::new(if v.len() == 0 {
                     Expression::Nil
                 } else {
-                    Expression::Quote(Rc::new(Expression::Application(Vec::from(&args[1..]))))
+                    Expression::Quote(Rc::new(Expression::Application(Vec::from(&v[1..]))))
                 }))
             } else {
                 Err(EvaluationError::NotAnApplication)
