@@ -24,6 +24,7 @@ pub enum EvaluationError {
     NotAQuote,
     NullApplication,
     NotAnApplication,
+    NotCompilable,
 }
 
 impl Display for EvaluationError {
@@ -40,6 +41,7 @@ impl Display for EvaluationError {
             EvaluationError::NotAQuote => write!(f, "Not a quote"),
             EvaluationError::NullApplication => write!(f, "Null quote"),
             EvaluationError::NotAnApplication => write!(f, "Not an application"),
+            EvaluationError::NotCompilable => write!(f, "Not compilable"),
         }
     }
 }
@@ -130,6 +132,7 @@ impl Lisp {
             "puts" => Ok(Lisp::puts(args)),
             "def" => self.def(args),
             "unquote" => self.unquote(args, scope),
+            "eval" => self.eval_quote(args, scope),
             "if" => self.iff(args, scope),
             "let" => self.lett(args, scope),
             "cons" => Lisp::cons(args),
@@ -359,6 +362,24 @@ impl Lisp {
         }
     }
 
+    fn eval_quote(
+        self: &mut Self,
+        args: &[Rc<Expression>],
+        scope: Option<&Scope>,
+    ) -> Result<Rc<Expression>, EvaluationError> {
+        Lisp::ensure_arity("eval", 1, args)?;
+
+        if let Expression::Quote(expression) = &*args[0] {
+            if let Some(string) = Lisp::quote_to_string(expression) {
+                self.eval(&string, scope)
+            } else {
+                Err(EvaluationError::NotCompilable)
+            }
+        } else {
+            Err(EvaluationError::NotCompilable)
+        }
+    }
+
     fn truthy(expression: &Rc<Expression>) -> bool {
         match &**expression {
             Expression::Application(_) => true,
@@ -472,6 +493,10 @@ impl Lisp {
         match (&*args[0], &*args[1]) {
             (Expression::Int(a), Expression::Int(b)) => Ok(Rc::new(Expression::Int(a + b))),
             (Expression::Float(a), Expression::Float(b)) => Ok(Rc::new(Expression::Float(a + b))),
+            (Expression::Float(a), Expression::Int(b))
+            | (Expression::Int(b), Expression::Float(a)) => {
+                Ok(Rc::new(Expression::Float(*a + (*b as f64))))
+            }
             _ => Err(EvaluationError::NotANumber),
         }
     }
@@ -482,6 +507,12 @@ impl Lisp {
         match (&*args[0], &*args[1]) {
             (Expression::Int(a), Expression::Int(b)) => Ok(Rc::new(Expression::Int(a - b))),
             (Expression::Float(a), Expression::Float(b)) => Ok(Rc::new(Expression::Float(a - b))),
+            (Expression::Float(a), Expression::Int(b)) => {
+                Ok(Rc::new(Expression::Float(*a - (*b as f64))))
+            }
+            (Expression::Int(a), Expression::Float(b)) => {
+                Ok(Rc::new(Expression::Float((*a as f64) - *b)))
+            }
             _ => Err(EvaluationError::NotANumber),
         }
     }
@@ -492,6 +523,10 @@ impl Lisp {
         match (&*args[0], &*args[1]) {
             (Expression::Int(a), Expression::Int(b)) => Ok(Rc::new(Expression::Int(a * b))),
             (Expression::Float(a), Expression::Float(b)) => Ok(Rc::new(Expression::Float(a * b))),
+            (Expression::Float(a), Expression::Int(b))
+            | (Expression::Int(b), Expression::Float(a)) => {
+                Ok(Rc::new(Expression::Float(*a * (*b as f64))))
+            }
             _ => Err(EvaluationError::NotANumber),
         }
     }

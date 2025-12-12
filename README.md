@@ -115,6 +115,11 @@ t
 (tail '())
 ; > nil
 
+; eval, compiles and evaluates a quoted expression.
+(* 2 (eval (readln)))
+; < 3.14
+; > 6.28
+
 ; Functions are quoted expressions with the list of arguments and the expression
 ; to evaluate.
 (def 'plus-one '((x) (+ x 1)))
