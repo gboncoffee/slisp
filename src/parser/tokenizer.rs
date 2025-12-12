@@ -66,6 +66,7 @@ fn tokenize_char(
         ')' => tokens.push(Token::CloseParen),
         '\'' => tokens.push(Token::Quote),
         '"' => tokenize_string(tokens, String::new(), rem.next(), rem)?,
+        ';' => skip_comment(tokens, rem.next(), rem)?,
         _ => return Err(TokenizerError::UnexpectedChar(char)),
     }
     tokenize_rec(tokens, rem.next(), rem)
@@ -134,7 +135,7 @@ fn push_name(tokens: &mut Vec<Token>, name: String) {
 
 fn char_is_reserved(char: char) -> bool {
     match char {
-        '(' | ')' | '\'' | '"' => true,
+        '(' | ')' | '\'' | '"' | ';' => true,
         _ => false,
     }
 }
@@ -155,5 +156,16 @@ fn tokenize_string(
             tokenize_string(tokens, string, rem.next(), rem)
         }
         None => Err(TokenizerError::UnexpectedEOF),
+    }
+}
+
+fn skip_comment(
+    tokens: &mut Vec<Token>,
+    char: Option<char>,
+    rem: &mut Chars,
+) -> Result<(), TokenizerError> {
+    match char {
+        Some('\n') | None => Ok(()),
+        Some(_) => skip_comment(tokens, rem.next(), rem),
     }
 }

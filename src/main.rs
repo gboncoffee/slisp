@@ -10,9 +10,7 @@ fn repl(mut vm: vm::Lisp) {
     for line in io::stdin().lock().lines() {
         match vm.eval(&line.unwrap(), None) {
             Ok(value) => {
-                if let Err(err) = vm.println(&[value]) {
-                    println!("{}", err);
-                }
+                vm::Lisp::println(&[value]);
             }
             Err(err) => println!("{}", err),
         }
@@ -33,9 +31,7 @@ fn main() {
             let content = std::fs::read_to_string(file).unwrap();
             match vm.eval(&content, None) {
                 Ok(value) => {
-                    if let Err(err) = vm.println(&[value]) {
-                        println!("{}", err);
-                    }
+                    vm::Lisp::println(&[value]);
                 }
                 Err(err) => println!("{}", err),
             }

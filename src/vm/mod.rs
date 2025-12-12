@@ -127,7 +127,8 @@ impl Lisp {
         scope: Option<&Scope>,
     ) -> Result<Rc<Expression>, EvaluationError> {
         match name {
-            "println" => self.println(args),
+            "println" => Ok(Lisp::println(args)),
+            "puts" => Ok(Lisp::puts(args)),
             "def" => self.def(args),
             "unquote" => self.unquote(args, scope),
             "if" => self.iff(args, scope),
@@ -143,51 +144,95 @@ impl Lisp {
         }
     }
 
-    pub fn println(
-        self: &Self,
-        args: &[Rc<Expression>],
-    ) -> Result<Rc<Expression>, EvaluationError> {
-        self.print(args)?;
+    pub fn println(args: &[Rc<Expression>]) -> Rc<Expression> {
+        Lisp::print(args);
         println!();
-        Ok(Rc::new(Expression::Nil))
+        Rc::new(Expression::Nil)
     }
 
-    pub fn print(self: &Self, args: &[Rc<Expression>]) -> Result<(), EvaluationError> {
+    pub fn print(args: &[Rc<Expression>]) {
         for arg in &args[..args.len() - 1] {
-            self.print_expression(arg.clone())?;
+            Lisp::print_expression(arg);
             print!(" ")
         }
-        self.print_expression(args[args.len() - 1].clone())
+        Lisp::print_expression(&args[args.len() - 1])
     }
 
-    fn print_expression(self: &Self, expression: Rc<Expression>) -> Result<(), EvaluationError> {
-        match &*expression {
+    fn print_expression(expression: &Expression) {
+        match expression {
             Expression::Application(list) => {
                 print!("(");
-                for elem in &list[..list.len() - 1] {
-                    self.print_expression(elem.clone())?;
-                    print!(" ");
+                if list.len() > 0 {
+                    for elem in &list[..list.len() - 1] {
+                        Lisp::print_expression(elem);
+                        print!(" ");
+                    }
+                    Lisp::print_expression(&list[list.len() - 1]);
                 }
-                self.print_expression(list[list.len() - 1].clone())?;
+
                 print!(")");
             }
             Expression::T => print!("t"),
             Expression::Nil => print!("nil"),
             Expression::Name(name) => print!("{name}"),
-            Expression::Quote(expression) => self.print_quote(expression.clone())?,
+            Expression::Quote(expression) => Lisp::print_quote(&expression),
             Expression::Float(number) => print!("{}", number),
             Expression::Int(number) => print!("{}", number),
         }
-        Ok(())
     }
 
-    fn print_quote(self: &Self, expression: Rc<Expression>) -> Result<(), EvaluationError> {
-        if let Some(string) = Lisp::quote_to_string(expression.clone()) {
-            print!("{}", string);
-            Ok(())
+    fn print_quote(expression: &Expression) {
+        print!("'");
+        Lisp::print_expression(expression)
+    }
+
+    fn puts(args: &[Rc<Expression>]) -> Rc<Expression> {
+        if args.len() > 0 {
+            for arg in &args[..args.len() - 1] {
+                Lisp::puts_arg(arg);
+                print!(" ");
+            }
+        }
+        Lisp::puts_arg(&args[args.len() - 1]);
+        println!("");
+
+        Rc::new(Expression::Nil)
+    }
+
+    fn puts_arg(arg: &Expression) {
+        if let Expression::Quote(a) = arg {
+            if let Some(string) = Lisp::quote_to_string(a) {
+                print!("{string}");
+            } else {
+                Lisp::print_quote(a);
+            }
         } else {
-            print!("'");
-            self.print_expression(expression)
+            Lisp::print_expression(arg);
+        }
+    }
+
+    fn quote_to_string(quote: &Expression) -> Option<String> {
+        if let Expression::Application(list) = &*quote {
+            let mut string = String::new();
+            for elem in list {
+                if let Expression::Int(value) = &**elem {
+                    match u32::try_from(*value) {
+                        Ok(value) => {
+                            if let Some(value) = char::from_u32(value) {
+                                string.push(value);
+                            } else {
+                                return None;
+                            }
+                        }
+                        _ => return None,
+                    };
+                } else {
+                    return None;
+                }
+            }
+            Some(string)
+        } else {
+            None
         }
     }
 
@@ -252,31 +297,6 @@ impl Lisp {
             Ok(value.clone())
         } else {
             Err(EvaluationError::Undefined(String::from(name)))
-        }
-    }
-
-    fn quote_to_string(quote: Rc<Expression>) -> Option<String> {
-        if let Expression::Application(list) = &*quote {
-            let mut string = String::new();
-            for elem in list {
-                if let Expression::Int(value) = &**elem {
-                    match u32::try_from(*value) {
-                        Ok(value) => {
-                            if let Some(value) = char::from_u32(value) {
-                                string.push(value);
-                            } else {
-                                return None;
-                            }
-                        }
-                        _ => return None,
-                    };
-                } else {
-                    return None;
-                }
-            }
-            Some(string)
-        } else {
-            None
         }
     }
 
