@@ -132,6 +132,7 @@ impl Lisp {
             "def" => self.def(args),
             "unquote" => self.unquote(args, scope),
             "if" => self.iff(args, scope),
+            "let" => self.lett(args, scope),
             "cons" => Lisp::cons(args),
             "head" => Lisp::head(args),
             "tail" => Lisp::tail(args),
@@ -270,7 +271,7 @@ impl Lisp {
             ));
         }
 
-        let mut scope = HashMap::new();
+        let mut scope = Scope::new();
         for (i, arg) in args_names.iter().enumerate() {
             if let Expression::Name(arg) = &**arg {
                 scope.insert(arg.clone(), args[i].clone());
@@ -368,6 +369,34 @@ impl Lisp {
         } else {
             self.unquote(&args[2..3], scope)
         }
+    }
+
+    fn lett(
+        self: &mut Self,
+        args: &[Rc<Expression>],
+        scope: Option<&Scope>,
+    ) -> Result<Rc<Expression>, EvaluationError> {
+        Lisp::ensure_arity("let", 3, args)?;
+
+        let mut new_scope = Scope::new();
+        if let Some(scope) = scope {
+            for (key, value) in scope.iter() {
+                new_scope.insert(key.clone(), value.clone());
+            }
+        }
+
+        let name = if let Expression::Quote(q) = &*args[0] {
+            if let Expression::Name(name) = &**q {
+                name
+            } else {
+                return Err(EvaluationError::NotAName);
+            }
+        } else {
+            return Err(EvaluationError::NotAQuote);
+        };
+
+        new_scope.insert(name.clone(), args[1].clone());
+        self.unquote(&args[2..3], Some(&new_scope))
     }
 
     fn cons(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
