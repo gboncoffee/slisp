@@ -21,7 +21,6 @@ pub enum EvaluationError {
     NotAFunction(String),
     WrongArity(String, usize, usize),
     NotANumber,
-    Uncomparable,
     NotAQuote,
     NullApplication,
     NotAnApplication,
@@ -38,7 +37,6 @@ impl Display for EvaluationError {
                 write!(f, "Wrong arity for {function}/{expected}: {got}")
             }
             EvaluationError::NotANumber => write!(f, "Not a number"),
-            EvaluationError::Uncomparable => write!(f, "Uncomparable"),
             EvaluationError::NotAQuote => write!(f, "Not a quote"),
             EvaluationError::NullApplication => write!(f, "Null quote"),
             EvaluationError::NotAnApplication => write!(f, "Not an application"),
@@ -485,21 +483,34 @@ impl Lisp {
 
     fn eq(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
         Lisp::ensure_arity("=", 2, args)?;
+        Ok(Rc::new(Lisp::compare(&*args[0], &*args[1])))
+    }
 
-        match (&*args[0], &*args[1]) {
-            (Expression::Int(a), Expression::Int(b)) => {
-                Ok(Rc::new(Lisp::bool_to_expression(*a == *b)))
+    fn compare(a: &Expression, b: &Expression) -> Expression {
+        match (a, b) {
+            (Expression::Application(va), Expression::Application(vb)) => {
+                if va.len() != vb.len() {
+                    Expression::Nil
+                } else {
+                    let mut result = Expression::T;
+                    for (a, b) in va.iter().zip(vb.iter()) {
+                        if let Expression::Nil = Lisp::compare(a, b) {
+                            result = Expression::Nil;
+                            break;
+                        }
+                    }
+                    result
+                }
             }
-            (Expression::Float(a), Expression::Float(b)) => {
-                Ok(Rc::new(Lisp::bool_to_expression(*a == *b)))
-            }
+            (Expression::Int(a), Expression::Int(b)) => Lisp::bool_to_expression(*a == *b),
+            (Expression::Float(a), Expression::Float(b)) => Lisp::bool_to_expression(*a == *b),
             (Expression::Float(a), Expression::Int(b))
             | (Expression::Int(b), Expression::Float(a)) => {
-                Ok(Rc::new(Lisp::bool_to_expression(*a == (*b as f64))))
+                Lisp::bool_to_expression(*a == (*b as f64))
             }
-            (Expression::T, Expression::T) => Ok(Rc::new(Expression::T)),
-            (Expression::Nil, Expression::Nil) => Ok(Rc::new(Expression::Nil)),
-            _ => Err(EvaluationError::Uncomparable),
+            (Expression::T, Expression::T) | (Expression::Nil, Expression::Nil) => Expression::T,
+            (Expression::Quote(a), Expression::Quote(b)) => Lisp::compare(a, b),
+            _ => Expression::Nil,
         }
     }
 
