@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, rc::Rc};
+use std::{collections::HashMap, fmt::Display, io, rc::Rc};
 
 use crate::parser;
 
@@ -126,6 +126,7 @@ impl Lisp {
     ) -> Result<Rc<Expression>, EvaluationError> {
         match name {
             "println" => Ok(Lisp::println(args)),
+            "readln" => Lisp::readln(args),
             "puts" => Ok(Lisp::puts(args)),
             "def" => self.def(args),
             "unquote" => self.unquote(args, scope),
@@ -183,6 +184,20 @@ impl Lisp {
     fn print_quote(expression: &Expression) {
         print!("'");
         Lisp::print_expression(expression)
+    }
+
+    fn readln(args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
+        Lisp::ensure_arity("readln", 0, args)?;
+
+        let mut buf = String::new();
+        Ok(match io::stdin().read_line(&mut buf) {
+            Err(_) => Rc::new(Expression::Nil),
+            Ok(_) => Rc::new(Expression::Quote(Rc::new(Expression::Application(
+                buf.chars()
+                    .map(|char| Rc::new(Expression::Int(char as i64)))
+                    .collect(),
+            )))),
+        })
     }
 
     fn puts(args: &[Rc<Expression>]) -> Rc<Expression> {

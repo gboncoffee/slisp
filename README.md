@@ -49,6 +49,10 @@ t
 (println "Hello, World!")
 ; > '(72 101 108 108 111 44 32 87 111 114 108 100 33)
 ; > nil
+; readln, reads a line of input as a quoted expression.
+(readln)
+; < Gabriel
+; > '(71 97 98 114 105 101 108 10)
 
 ; Arithmetic.
 (+ 1 2)

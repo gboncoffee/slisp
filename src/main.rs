@@ -2,13 +2,17 @@ mod parser;
 mod vm;
 
 use std::env;
-use std::io::{self, BufRead, Write};
+use std::io::{self, Write};
 
 fn repl(mut vm: vm::Lisp) {
     print!("lisp> ");
     io::stdout().flush().unwrap();
-    for line in io::stdin().lock().lines() {
-        match vm.eval(&line.unwrap(), None) {
+
+    let mut line = String::new();
+    while let Ok(size) = io::stdin().read_line(&mut line)
+        && size != 0
+    {
+        match vm.eval(&line, None) {
             Ok(value) => {
                 vm::Lisp::println(&[value]);
             }
@@ -16,6 +20,7 @@ fn repl(mut vm: vm::Lisp) {
         }
         print!("lisp> ");
         io::stdout().flush().unwrap();
+        line.clear();
     }
     println!("");
     println!("bye!");
