@@ -122,6 +122,10 @@ t
 ; < 3.14
 ; > 6.28
 
+; load, does eval but in a file.
+(load "my_functions.lisp")
+; > t
+
 ; Functions are quoted expressions with the list of arguments and the expression
 ; to evaluate.
 (def 'plus-one '((x) (+ x 1)))
