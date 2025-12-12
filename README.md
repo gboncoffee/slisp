@@ -9,6 +9,8 @@ running scripts, it prints the value of the last expression.
 
 # Examples
 
+For a real example program, see `rule110.lisp`.
+
 ```lisp
 ; A ; introduces comments.
 
