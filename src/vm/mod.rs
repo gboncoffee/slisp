@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, io, rc::Rc};
+use std::{collections::HashMap, fmt::Display, fs, io, rc::Rc};
 
 use crate::parser;
 
@@ -133,6 +133,7 @@ impl Lisp {
             "def" => self.def(args),
             "unquote" => self.unquote(args, scope),
             "eval" => self.eval_quote(args, scope),
+            "load" => self.load(args, scope),
             "if" => self.iff(args, scope),
             "let" => self.lett(args, scope),
             "cons" => Lisp::cons(args),
@@ -143,7 +144,7 @@ impl Lisp {
             "-" => Lisp::sub(args),
             "*" => Lisp::mul(args),
             "=" => Lisp::eq(args),
-            _ => self.run_function(name, args),
+            _ => self.run_function(name, args, scope),
         }
     }
 
@@ -257,10 +258,11 @@ impl Lisp {
         self: &mut Self,
         name: &str,
         args: &[Rc<Expression>],
+        scope: Option<&Scope>,
     ) -> Result<Rc<Expression>, EvaluationError> {
         let err = Err(EvaluationError::NotAFunction(String::from(name)));
 
-        let def = self.query(name, None)?;
+        let def = self.query(name, scope)?;
         let def = if let Expression::Quote(def) = &*def {
             if let Expression::Application(def) = &**def {
                 def
@@ -287,16 +289,20 @@ impl Lisp {
             ));
         }
 
-        let mut scope = Scope::new();
+        let mut new_scope = if let Some(scope) = scope {
+            scope.clone()
+        } else {
+            Scope::new()
+        };
         for (i, arg) in args_names.iter().enumerate() {
             if let Expression::Name(arg) = &**arg {
-                scope.insert(arg.clone(), args[i].clone());
+                new_scope.insert(arg.clone(), args[i].clone());
             } else {
                 return err;
             }
         }
 
-        self.eval_expression(def[1].clone(), Some(&scope))
+        self.eval_expression(def[1].clone(), Some(&new_scope))
     }
 
     fn query(
@@ -377,6 +383,28 @@ impl Lisp {
             }
         } else {
             Err(EvaluationError::NotCompilable)
+        }
+    }
+
+    fn load(
+        self: &mut Self,
+        args: &[Rc<Expression>],
+        scope: Option<&Scope>,
+    ) -> Result<Rc<Expression>, EvaluationError> {
+        Lisp::ensure_arity("load", 1, args)?;
+
+        if let Expression::Quote(a) = &*args[0] {
+            if let Some(string) = Lisp::quote_to_string(a) {
+                if let Ok(content) = fs::read_to_string(string) {
+                    self.eval(&content, scope)
+                } else {
+                    Err(EvaluationError::NotCompilable)
+                }
+            } else {
+                Err(EvaluationError::NotCompilable)
+            }
+        } else {
+            Err(EvaluationError::NotAQuote)
         }
     }
 

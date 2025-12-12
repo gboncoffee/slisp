@@ -1,13 +1,17 @@
-; A factorial function.
-(def 'factorial '((x)
-    (if (= x 0)
-        1
-        '(* x (factorial (- x 1))))))
-
-; println prints.
-(println (factorial 5))
-
-; : returns the last argument.
-(:
-    (puts "Hello, World!")
-    (puts "foo bar"))
+(def 'rule110 '((a b c)
+    (let 'list (cons a (cons b (cons c nil)))
+        '(if (= list "111")
+            zero
+            '(if (= list "110")
+                one
+                '(if (= list "101")
+                    one
+                    '(if (= list "100")
+                        zero
+                        '(if (= list "011")
+                            one
+                            '(if (= list "010")
+                                one
+                                '(if (= list "001")
+                                    one
+                                    zero))))))))))
