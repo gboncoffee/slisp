@@ -21,6 +21,7 @@ pub enum EvaluationError {
     NotAFunction(String),
     WrongArity(String, usize, usize),
     NotANumber,
+    Uncomparable,
 }
 
 impl Display for EvaluationError {
@@ -34,6 +35,7 @@ impl Display for EvaluationError {
                 write!(f, "Wrong arity for {function}/{expected}: {got}")
             }
             EvaluationError::NotANumber => write!(f, "Not a number"),
+            EvaluationError::Uncomparable => write!(f, "Uncomparable"),
         }
     }
 }
@@ -123,9 +125,11 @@ impl Lisp {
             "def" => self.def(args),
             "unquote" => self.unquote(args, scope),
             "if" => self.iff(args, scope),
+            ":" => Ok(args[args.len() - 1].clone()),
             "+" => self.add(args),
             "-" => self.sub(args),
             "*" => self.mul(args),
+            "=" => self.eq(args),
             _ => self.run_function(name, args),
         }
     }
@@ -365,5 +369,29 @@ impl Lisp {
             (Expression::Float(a), Expression::Float(b)) => Ok(Rc::new(Expression::Float(a * b))),
             _ => Err(EvaluationError::NotANumber),
         }
+    }
+
+    fn eq(self: &mut Self, args: &[Rc<Expression>]) -> Result<Rc<Expression>, EvaluationError> {
+        Lisp::ensure_arity("=", 2, args)?;
+
+        match (&*args[0], &*args[1]) {
+            (Expression::Int(a), Expression::Int(b)) => {
+                Ok(Rc::new(Lisp::bool_to_expression(*a == *b)))
+            }
+            (Expression::Float(a), Expression::Float(b)) => {
+                Ok(Rc::new(Lisp::bool_to_expression(*a == *b)))
+            }
+            (Expression::Float(a), Expression::Int(b))
+            | (Expression::Int(b), Expression::Float(a)) => {
+                Ok(Rc::new(Lisp::bool_to_expression(*a == (*b as f64))))
+            }
+            (Expression::T, Expression::T) => Ok(Rc::new(Expression::T)),
+            (Expression::Nil, Expression::Nil) => Ok(Rc::new(Expression::Nil)),
+            _ => Err(EvaluationError::Uncomparable),
+        }
+    }
+
+    fn bool_to_expression(v: bool) -> Expression {
+        if v { Expression::T } else { Expression::Nil }
     }
 }

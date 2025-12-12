@@ -1,11 +1,10 @@
 mod parser;
 mod vm;
 
+use std::env;
 use std::io::{self, BufRead, Write};
 
-fn main() {
-    let mut vm = vm::Lisp::new();
-
+fn repl(mut vm: vm::Lisp) {
     print!("lisp> ");
     io::stdout().flush().unwrap();
     for line in io::stdin().lock().lines() {
@@ -22,4 +21,24 @@ fn main() {
     }
     println!("");
     println!("bye!");
+}
+
+fn main() {
+    let mut vm = vm::Lisp::new();
+    let args = env::args().collect::<Vec<String>>();
+    if args.len() == 1 {
+        repl(vm);
+    } else {
+        for file in args[1..].iter() {
+            let content = std::fs::read_to_string(file).unwrap();
+            match vm.eval(&content, None) {
+                Ok(value) => {
+                    if let Err(err) = vm.println(&[value]) {
+                        println!("{}", err);
+                    }
+                }
+                Err(err) => println!("{}", err),
+            }
+        }
+    }
 }
